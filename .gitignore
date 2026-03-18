@@ -22,6 +22,10 @@ pyproject.toml
 *.parquet
 secrets/
 
+# Student archives (do not commit)
+students/**/Archive-2/**
+students/**/archive-2/**
+
 # Local datasets
 **/dataset 1.29/
 **/data/local/notes-00000.tsv

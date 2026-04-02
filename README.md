@@ -10,6 +10,10 @@
 4. Create a folder for yourself in the `students` directory
 5. Write code in your directory
 
+## At the Start of the Week
+
+Make a comment on the issue you'll be working on, stating what work you intend to do.
+
 ## How to Submit a Task
 
 1. Once your work is ready to submit, perform a [git pull](https://github.com/git-guides/git-pull) to integrate recent changes from others.

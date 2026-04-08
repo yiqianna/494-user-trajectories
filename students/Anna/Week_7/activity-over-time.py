@@ -70,8 +70,50 @@ def _(pl, rating_traj, requesting_traj, writing_traj):
 
 @app.cell
 def _(pl, traj):
-    users_month_stat = (
+    user_range = (
         traj
+        .group_by("noteAuthorParticipantId")
+        .agg(
+            pl.col("calendarMonth").min().alias("min_month"),
+            pl.col("calendarMonth").max().alias("max_month"),
+        )
+    )
+
+    all_months = traj.select("calendarMonth").unique()
+
+    full_grid = (
+        user_range
+        .join(all_months, how="cross")
+        .filter(
+            (pl.col("calendarMonth") >= pl.col("min_month")) &
+            (pl.col("calendarMonth") <= pl.col("max_month"))
+        )
+        .select(["noteAuthorParticipantId", "calendarMonth"])
+    )
+
+    traj_full = (
+        full_grid.join(
+            traj,
+            on=["noteAuthorParticipantId", "calendarMonth"],
+            how="left"
+        )
+        .with_columns(
+            pl.col("userMonth").fill_null(-1),
+            pl.col("notesCreated").fill_null(0),
+            pl.col("notesRated").fill_null(0),
+            pl.col("requestsMade").fill_null(0),
+        )
+        .sort(["noteAuthorParticipantId", "calendarMonth"])
+    )
+
+    traj_full
+    return (traj_full,)
+
+
+@app.cell
+def _(pl, traj_full):
+    users_month_stat = (
+        traj_full
         .with_columns(
             pl.when(pl.col("notesCreated") == 1)
             .then(pl.lit("single-note writer"))
@@ -91,6 +133,7 @@ def _(pl, traj):
             .then(pl.lit("single-digit rater"))
             .when((pl.col("notesCreated") == 0) & (pl.col("notesRated") >= 10))
             .then(pl.lit("double-digit rater"))
+
             # requestor
             .when(
                 (pl.col("notesCreated") == 0)
@@ -115,20 +158,19 @@ def _(pl, traj):
             .otherwise(pl.lit("not active"))
             .alias("contribution_type")
         )
-
         .group_by(["calendarMonth", "contribution_type"])
         .len()
         .rename({"len": "num_users"})
-        # Total count
         .with_columns(
             pl.col("num_users").sum().over("calendarMonth").alias("month_total")
         )
-        # Precentage
         .with_columns(
             (pl.col("num_users") / pl.col("month_total")).alias("prop_users")
         )
         .sort(["calendarMonth", "contribution_type"])
     )
+
+    users_month_stat
     return (users_month_stat,)
 
 
@@ -142,6 +184,7 @@ def _(users_month_stat):
 def _(users_month_stat):
     import matplotlib.pyplot as plt
     import matplotlib.ticker as mtick
+
 
     pivot_df = (
         users_month_stat
@@ -174,7 +217,7 @@ def _(users_month_stat):
     ax = pivot_df.plot(
         kind="bar",
         stacked=True,
-        figsize=(14, 6),
+        figsize=(15, 6),
         width=0.9,
     )
 
